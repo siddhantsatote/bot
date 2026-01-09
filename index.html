@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mochi Robot Control - Free LLM</title>
+    <title>Mochi Robot Control - Auto-Conversation</title>
     <style>
         * {
             margin: 0;
@@ -66,9 +66,15 @@
             animation: pulse 1.5s infinite;
         }
 
+        .speaking {
+            background: #f59e0b;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            50% { opacity: 0.6; }
         }
 
         .section {
@@ -196,24 +202,6 @@
             overflow-y: auto;
         }
 
-        .audio-viz {
-            height: 60px;
-            background: #1e293b;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 3px;
-            padding: 10px;
-        }
-
-        .bar {
-            width: 4px;
-            background: #667eea;
-            border-radius: 2px;
-            transition: height 0.1s;
-        }
-
         .info-box {
             background: #dbeafe;
             border-left: 4px solid #3b82f6;
@@ -225,6 +213,11 @@
         .success-box {
             background: #d1fae5;
             border-left: 4px solid #10b981;
+        }
+
+        .warning-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
         }
 
         .api-status {
@@ -260,11 +253,6 @@
             to { transform: rotate(360deg); }
         }
 
-        .test-section {
-            background: #f0fdf4;
-            border: 2px dashed #22c55e;
-        }
-
         .model-info {
             font-size: 0.85em;
             color: #64748b;
@@ -275,17 +263,19 @@
 <body>
     <div class="container">
         <h1>🤖 Mochi Robot Control</h1>
-        <p style="color: #64748b; margin-bottom: 20px;">AI-powered voice companion with FREE LLM models</p>
+        <p style="color: #64748b; margin-bottom: 20px;">AI-powered voice companion with auto-conversation</p>
 
         <div class="status">
             <div class="status-item disconnected" id="btStatus">Bluetooth: Disconnected</div>
             <div class="status-item disconnected" id="listenStatus">Not Listening</div>
+            <div class="status-item disconnected" id="speakStatus">Not Speaking</div>
             <div class="status-item api-free" id="llmStatus">LLM: Free Models Ready! 🎉</div>
         </div>
 
         <div class="info-box success-box">
-            <strong>🎉 100% FREE LLM Models - No API Key Needed!</strong><br>
-            All models below are completely free to use. Choose your favorite and start chatting!
+            <strong>✨ New Feature: Automatic Conversation Flow!</strong><br>
+            🎤 Robot listens → 🤖 Processes → 🗣️ Responds → 🎤 Auto-listens again!<br>
+            Mic is automatically disabled during robot responses to prevent echo.
         </div>
 
         <div class="info-box">
@@ -293,7 +283,7 @@
             1. Pair "Mochi_Robot" in Windows Bluetooth settings<br>
             2. Note the COM port (e.g., COM5)<br>
             3. Select your preferred free LLM model below<br>
-            4. Click "Connect to Robot" and start chatting!
+            4. Click "Start Conversation" for automatic back-and-forth chat!
         </div>
 
         <div class="section">
@@ -339,15 +329,12 @@
 
         <div class="section">
             <h2>🎤 Voice Control</h2>
-            <div class="button-group">
-                <button class="success-btn" onclick="startListening()" id="listenBtn">🎤 Start Listening</button>
-                <button class="danger-btn" onclick="stopListening()">⏹️ Stop</button>
+            <div class="info-box warning-box">
+                <strong>🔄 Auto-Conversation Mode:</strong> Once started, Mochi will automatically listen after each response!
             </div>
-            <div class="audio-viz" id="audioViz">
-                <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-                <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-                <div class="bar"></div><div class="bar"></div><div class="bar"></div>
-                <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+            <div class="button-group">
+                <button class="success-btn" onclick="startConversation()" id="conversationBtn">🎤 Start Conversation</button>
+                <button class="danger-btn" onclick="stopConversation()">⏹️ Stop Conversation</button>
             </div>
         </div>
 
@@ -355,22 +342,14 @@
             <h2>💬 Conversation</h2>
             <div class="chat-area" id="chatArea">
                 <div style="text-align: center; color: #94a3b8; padding: 50px 20px;">
-                    Start a conversation by clicking "Start Listening" above!
+                    Start a conversation by clicking "Start Conversation" above!
                 </div>
-            </div>
-        </div>
-
-        <div class="section test-section">
-            <h2>🧪 Test AI (without robot)</h2>
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <input type="text" id="testInput" placeholder="Type a message to test the AI..." style="flex: 1;">
-                <button class="primary-btn" onclick="testLLMWithInput()">Send</button>
             </div>
         </div>
 
         <div class="section">
             <h2>📊 System Log</h2>
-            <div class="log" id="systemLog">System initialized. Free AI models ready! 🎉</div>
+            <div class="log" id="systemLog">System initialized. Ready for auto-conversation! 🎉</div>
         </div>
     </div>
 
@@ -379,8 +358,12 @@
         let reader = null;
         let writer = null;
         let isListening = false;
+        let isSpeaking = false;
+        let isConversationActive = false;
         let recognition = null;
         let conversationHistory = [];
+        let speechQueue = [];
+        let currentUtterance = null;
 
         // Model information
         const modelInfo = {
@@ -411,18 +394,15 @@
                 
                 await sendCommand('INPUT:' + transcript);
                 
-                document.getElementById('listenBtn').innerHTML = '<span class="loading"></span> Thinking...';
-                document.getElementById('listenBtn').disabled = true;
+                document.getElementById('conversationBtn').innerHTML = '<span class="loading"></span> Thinking...';
+                document.getElementById('conversationBtn').disabled = true;
                 
                 const response = await getAIResponse(transcript);
-                
-                document.getElementById('listenBtn').innerHTML = '🎤 Start Listening';
-                document.getElementById('listenBtn').disabled = false;
                 
                 if (response) {
                     addMessage('bot', response);
                     await sendCommand('RESPONSE:' + response);
-                    speak(response);
+                    speakResponse(response);
                 }
             };
             
@@ -430,13 +410,19 @@
                 if (event.error !== 'no-speech') {
                     log('⚠️ Speech recognition error: ' + event.error, 'warn');
                 }
-                document.getElementById('listenBtn').disabled = false;
-                document.getElementById('listenBtn').innerHTML = '🎤 Start Listening';
             };
             
             recognition.onend = () => {
-                if (isListening) {
-                    recognition.start();
+                isListening = false;
+                updateStatusDisplay();
+                
+                // Auto-restart listening if conversation is still active and not speaking
+                if (isConversationActive && !isSpeaking) {
+                    setTimeout(() => {
+                        if (isConversationActive && !isSpeaking) {
+                            startListening();
+                        }
+                    }, 500);
                 }
             };
             
@@ -493,8 +479,7 @@
 
         // Hugging Face Inference API (FREE!)
         async function callHuggingFace(apiKey, systemPrompt, history) {
-            // Use Hugging Face's free inference API
-            const model = 'meta-llama/Llama-3.2-3B-Instruct'; // Free model
+            const model = 'meta-llama/Llama-3.2-3B-Instruct';
             
             const messages = [
                 { role: 'system', content: systemPrompt },
@@ -532,125 +517,6 @@
             return data[0]?.generated_text?.trim() || data.generated_text?.trim();
         }
 
-        // Groq Free Tier (Fast & Free!)
-        async function callGroqFree(apiKey, systemPrompt, history) {
-            if (!apiKey) {
-                throw new Error('Groq requires an API key. Sign up for free at https://console.groq.com');
-            }
-
-            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: 'llama-3.3-70b-versatile',
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        ...history
-                    ],
-                    max_tokens: 150,
-                    temperature: 0.8
-                })
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || 'Groq API error');
-            }
-
-            const data = await response.json();
-            return data.choices[0].message.content.trim();
-        }
-
-        // Together AI Free Tier
-        async function callTogetherAI(apiKey, systemPrompt, history) {
-            if (!apiKey) {
-                throw new Error('Together AI requires an API key. Sign up for $25 free credits at https://together.ai');
-            }
-
-            const response = await fetch('https://api.together.xyz/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: 'meta-llama/Llama-3-8b-chat-hf',
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        ...history
-                    ],
-                    max_tokens: 150,
-                    temperature: 0.8
-                })
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || 'Together AI error');
-            }
-
-            const data = await response.json();
-            return data.choices[0].message.content.trim();
-        }
-
-        // Replicate
-        async function callReplicate(apiKey, systemPrompt, history) {
-            if (!apiKey) {
-                throw new Error('Replicate requires an API key. Sign up for free credits at https://replicate.com');
-            }
-
-            const messages = [
-                { role: 'system', content: systemPrompt },
-                ...history
-            ];
-
-            const prompt = messages.map(m => {
-                if (m.role === 'system') return m.content;
-                return `${m.role === 'user' ? 'User' : 'Mochi'}: ${m.content}`;
-            }).join('\n') + '\nMochi:';
-
-            const response = await fetch('https://api.replicate.com/v1/predictions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Token ${apiKey}`
-                },
-                body: JSON.stringify({
-                    version: 'meta/llama-2-7b-chat',
-                    input: {
-                        prompt: prompt,
-                        max_length: 150,
-                        temperature: 0.8
-                    }
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Replicate API error');
-            }
-
-            const prediction = await response.json();
-            
-            // Poll for result
-            let result = prediction;
-            while (result.status !== 'succeeded' && result.status !== 'failed') {
-                await new Promise(r => setTimeout(r, 500));
-                const pollResponse = await fetch(prediction.urls.get, {
-                    headers: { 'Authorization': `Token ${apiKey}` }
-                });
-                result = await pollResponse.json();
-            }
-
-            if (result.status === 'failed') {
-                throw new Error('Prediction failed');
-            }
-
-            return result.output?.join('') || result.output;
-        }
-
         // Mock responses for testing
         function getMockResponse(text) {
             const responses = {
@@ -675,6 +541,144 @@
             return responses.default;
         }
 
+        // Speech synthesis with callbacks
+        function speakResponse(text) {
+            isSpeaking = true;
+            updateStatusDisplay();
+            
+            // Notify robot that speaking started
+            sendCommand('SPEAKING_START');
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.2;
+            utterance.volume = 0.8;
+            
+            utterance.onstart = () => {
+                log('🗣️ Mochi started speaking');
+            };
+            
+            utterance.onend = () => {
+                isSpeaking = false;
+                updateStatusDisplay();
+                log('🤐 Mochi finished speaking');
+                
+                // Notify robot that speaking ended
+                sendCommand('SPEAKING_END');
+                
+                document.getElementById('conversationBtn').innerHTML = '🎤 Listening...';
+                document.getElementById('conversationBtn').disabled = false;
+                
+                // Auto-restart listening after speaking
+                if (isConversationActive) {
+                    setTimeout(() => {
+                        startListening();
+                    }, 500);
+                }
+            };
+            
+            utterance.onerror = () => {
+                isSpeaking = false;
+                updateStatusDisplay();
+                log('❌ Speech synthesis error');
+                
+                sendCommand('SPEAKING_END');
+                
+                // Still try to restart listening
+                if (isConversationActive) {
+                    setTimeout(() => {
+                        startListening();
+                    }, 500);
+                }
+            };
+            
+            currentUtterance = utterance;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Update status display
+        function updateStatusDisplay() {
+            const listenStatus = document.getElementById('listenStatus');
+            const speakStatus = document.getElementById('speakStatus');
+            
+            if (isListening) {
+                listenStatus.textContent = 'Listening...';
+                listenStatus.className = 'status-item listening';
+            } else {
+                listenStatus.textContent = 'Not Listening';
+                listenStatus.className = 'status-item disconnected';
+            }
+            
+            if (isSpeaking) {
+                speakStatus.textContent = 'Speaking...';
+                speakStatus.className = 'status-item speaking';
+            } else {
+                speakStatus.textContent = 'Not Speaking';
+                speakStatus.className = 'status-item disconnected';
+            }
+        }
+
+        // Start conversation mode
+        async function startConversation() {
+            if (!port) {
+                alert('Please connect to robot first!');
+                return;
+            }
+            
+            if (!recognition) {
+                recognition = initSpeechRecognition();
+                if (!recognition) return;
+            }
+            
+            isConversationActive = true;
+            document.getElementById('conversationBtn').innerHTML = '🎤 Listening...';
+            
+            log('🔄 Auto-conversation mode started!');
+            
+            startListening();
+        }
+
+        // Start listening
+        function startListening() {
+            if (isSpeaking) {
+                log('⚠️ Cannot listen while speaking');
+                return;
+            }
+            
+            isListening = true;
+            updateStatusDisplay();
+            
+            sendCommand('START_STREAM');
+            recognition.start();
+            
+            log('🎤 Started listening...');
+        }
+
+        // Stop conversation
+        function stopConversation() {
+            isConversationActive = false;
+            isListening = false;
+            
+            if (recognition) {
+                recognition.stop();
+            }
+            
+            if (currentUtterance) {
+                window.speechSynthesis.cancel();
+                isSpeaking = false;
+            }
+            
+            updateStatusDisplay();
+            
+            sendCommand('STOP_STREAM');
+            sendCommand('SPEAKING_END');
+            
+            document.getElementById('conversationBtn').innerHTML = '🎤 Start Conversation';
+            document.getElementById('conversationBtn').disabled = false;
+            
+            log('⏹️ Conversation stopped');
+        }
+
         // Test LLM
         async function testLLM() {
             const testMessage = "Hi! Can you introduce yourself briefly?";
@@ -687,20 +691,6 @@
                 alert('AI Test Successful!\n\nResponse: ' + response);
             } else {
                 alert('AI Test Failed. Check the console for details.');
-            }
-        }
-
-        // Test with custom input
-        async function testLLMWithInput() {
-            const input = document.getElementById('testInput').value.trim();
-            if (!input) return;
-            
-            addMessage('user', input);
-            document.getElementById('testInput').value = '';
-            
-            const response = await getAIResponse(input);
-            if (response) {
-                addMessage('bot', response);
             }
         }
 
@@ -788,57 +778,14 @@
             log('📥 Robot: ' + msg);
             
             if (msg.includes('VOICE_START')) {
-                animateAudioViz(true);
+                // Voice detected
             } else if (msg.includes('VOICE_END')) {
-                animateAudioViz(false);
+                // Voice ended
             } else if (msg.includes('PONG')) {
                 log('✅ Connection test successful!');
+            } else if (msg.includes('AUTO_LISTEN_START')) {
+                log('🔄 Robot auto-restarted listening');
             }
-        }
-
-        async function startListening() {
-            if (!port) {
-                alert('Please connect to robot first!');
-                return;
-            }
-            
-            if (!recognition) {
-                recognition = initSpeechRecognition();
-                if (!recognition) return;
-            }
-            
-            isListening = true;
-            document.getElementById('listenStatus').textContent = 'Listening...';
-            document.getElementById('listenStatus').className = 'status-item listening';
-            
-            await sendCommand('START_STREAM');
-            recognition.start();
-            animateAudioViz(true);
-            
-            log('🎤 Started listening...');
-        }
-
-        async function stopListening() {
-            isListening = false;
-            document.getElementById('listenStatus').textContent = 'Not Listening';
-            document.getElementById('listenStatus').className = 'status-item disconnected';
-            
-            if (recognition) {
-                recognition.stop();
-            }
-            
-            await sendCommand('STOP_STREAM');
-            animateAudioViz(false);
-            
-            log('⏹️ Stopped listening');
-        }
-
-        function speak(text) {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 1.0;
-            utterance.pitch = 1.2;
-            utterance.volume = 0.8;
-            window.speechSynthesis.speak(utterance);
         }
 
         function addMessage(type, text) {
@@ -864,21 +811,6 @@
             chatArea.scrollTop = chatArea.scrollHeight;
         }
 
-        function animateAudioViz(active) {
-            const bars = document.querySelectorAll('.bar');
-            if (active) {
-                bars.forEach((bar, i) => {
-                    setInterval(() => {
-                        if (!isListening && !active) return;
-                        const height = Math.random() * 40 + 10;
-                        bar.style.height = height + 'px';
-                    }, 100 + i * 50);
-                });
-            } else {
-                bars.forEach(bar => bar.style.height = '4px');
-            }
-        }
-
         function log(message, level = 'info') {
             const logDiv = document.getElementById('systemLog');
             const time = new Date().toLocaleTimeString();
@@ -895,6 +827,8 @@
         }
 
         async function disconnect() {
+            stopConversation();
+            
             if (reader) {
                 await reader.cancel();
             }
@@ -911,14 +845,8 @@
         // Initialize on load
         window.addEventListener('DOMContentLoaded', () => {
             updateLLMStatus();
-            log('✅ System initialized with FREE AI models!');
-            
-            // Allow Enter key to send test messages
-            document.getElementById('testInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    testLLMWithInput();
-                }
-            });
+            updateStatusDisplay();
+            log('✅ System initialized with auto-conversation mode!');
         });
     </script>
 </body>
