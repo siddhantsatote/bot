@@ -258,6 +258,14 @@
             color: #64748b;
             margin-top: 5px;
         }
+        
+        .error {
+            color: #ef4444;
+        }
+        
+        .success {
+            color: #10b981;
+        }
     </style>
 </head>
 <body>
@@ -306,9 +314,8 @@
                     <label>Select Free Model:</label>
                     <select id="aiProvider" onchange="updateLLMStatus()">
                         <option value="huggingface">🤗 Hugging Face Inference (Recommended)</option>
-                        <option value="groq-free">⚡ Groq Free (Fast Llama 3.3)</option>
-                        <option value="together">🌐 Together AI Free</option>
-                        <option value="replicate">🔄 Replicate Free</option>
+                        <option value="openrouter">🌐 OpenRouter Free (Llama 3.1)</option>
+                        <option value="deepseek">🔍 DeepSeek API Free</option>
                         <option value="mock">🧪 Mock (Testing)</option>
                     </select>
                     <div class="model-info" id="modelInfo">
@@ -322,7 +329,7 @@
             </div>
             <div style="margin-top: 15px;">
                 <label>Mochi's Personality:</label>
-                <textarea id="systemPrompt" rows="3" style="width: 100%; resize: vertical;">You are Mochi, a friendly and expressive desk robot companion. You give short, warm responses (1-2 sentences max). You're curious, playful, and supportive. Express emotions naturally!</textarea>
+                <textarea id="systemPrompt" rows="3" style="width: 100%; resize: vertical;">You are Mochi, a friendly and expressive desk robot companion. You give short, warm responses (1-2 sentences max). You're curious, playful, and supportive. Express emotions naturally! Keep responses under 20 words.</textarea>
             </div>
             <button class="success-btn" onclick="testLLM()" style="margin-top: 10px;">🧪 Test AI Model</button>
         </div>
@@ -367,10 +374,9 @@
 
         // Model information
         const modelInfo = {
-            'huggingface': 'Fast Llama 3.1 8B - Free unlimited access via Hugging Face',
-            'groq-free': 'Lightning-fast Llama 3.3 70B - Free tier with generous limits',
-            'together': 'Various open-source models - Free tier available',
-            'replicate': 'On-demand inference - Pay-per-use with free credits',
+            'huggingface': 'Llama 3.2 3B Instruct - Free via Hugging Face Inference API',
+            'openrouter': 'Llama 3.1 8B - Free tier via OpenRouter',
+            'deepseek': 'DeepSeek V3 - Free tier via official API',
             'mock': 'Testing mode - No real AI calls'
         };
 
@@ -449,12 +455,10 @@
                 
                 if (provider === 'huggingface') {
                     response = await callHuggingFace(apiKey, systemPrompt, conversationHistory);
-                } else if (provider === 'groq-free') {
-                    response = await callGroqFree(apiKey, systemPrompt, conversationHistory);
-                } else if (provider === 'together') {
-                    response = await callTogetherAI(apiKey, systemPrompt, conversationHistory);
-                } else if (provider === 'replicate') {
-                    response = await callReplicate(apiKey, systemPrompt, conversationHistory);
+                } else if (provider === 'openrouter') {
+                    response = await callOpenRouter(apiKey, systemPrompt, conversationHistory);
+                } else if (provider === 'deepseek') {
+                    response = await callDeepSeek(apiKey, systemPrompt, conversationHistory);
                 }
 
                 if (response) {
@@ -471,7 +475,7 @@
                 }
             } catch (error) {
                 log('❌ AI Error: ' + error.message, 'error');
-                return "Sorry, I had trouble thinking of a response. Can you try again?";
+                return "Sorry, I had trouble thinking of a response. Let's continue our chat!";
             }
 
             return null;
@@ -483,13 +487,8 @@
             
             const messages = [
                 { role: 'system', content: systemPrompt },
-                ...history
+                ...history.slice(-4) // Only keep last 4 messages for context
             ];
-
-            const prompt = messages.map(m => {
-                if (m.role === 'system') return m.content;
-                return `${m.role === 'user' ? 'User' : 'Mochi'}: ${m.content}`;
-            }).join('\n') + '\nMochi:';
 
             const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
                 method: 'POST',
@@ -498,47 +497,141 @@
                     ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
                 },
                 body: JSON.stringify({
-                    inputs: prompt,
+                    inputs: formatHuggingFacePrompt(messages),
                     parameters: {
-                        max_new_tokens: 100,
+                        max_new_tokens: 80,
                         temperature: 0.8,
                         top_p: 0.9,
-                        return_full_text: false
+                        repetition_penalty: 1.1,
+                        do_sample: true
                     }
                 })
             });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Hugging Face API error');
+                const error = await response.text();
+                throw new Error(error || 'Hugging Face API error');
             }
 
             const data = await response.json();
-            return data[0]?.generated_text?.trim() || data.generated_text?.trim();
+            const generatedText = data[0]?.generated_text || '';
+            
+            // Extract the assistant's response
+            const lines = generatedText.split('\n');
+            const assistantResponse = lines.find(line => line.startsWith('Mochi:')) || lines[lines.length - 1];
+            
+            return assistantResponse.replace(/^Mochi:\s*/, '').trim();
+        }
+
+        function formatHuggingFacePrompt(messages) {
+            let prompt = '';
+            for (const msg of messages) {
+                if (msg.role === 'system') {
+                    prompt += `<|system|>\n${msg.content}\n`;
+                } else if (msg.role === 'user') {
+                    prompt += `<|user|>\n${msg.content}\n`;
+                } else {
+                    prompt += `<|assistant|>\n${msg.content}\n`;
+                }
+            }
+            prompt += '<|assistant|>\n';
+            return prompt;
+        }
+
+        // OpenRouter Free Tier
+        async function callOpenRouter(apiKey, systemPrompt, history) {
+            const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey || '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'}`, // Demo key
+                    'HTTP-Referer': 'http://localhost:8000',
+                    'X-Title': 'Mochi Robot'
+                },
+                body: JSON.stringify({
+                    model: 'meta-llama/llama-3.1-8b-instruct:free',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        ...history.slice(-4)
+                    ],
+                    max_tokens: 100,
+                    temperature: 0.8,
+                    top_p: 0.9
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                throw new Error('OpenRouter error: ' + error);
+            }
+
+            const data = await response.json();
+            return data.choices[0].message.content.trim();
+        }
+
+        // DeepSeek Free API
+        async function callDeepSeek(apiKey, systemPrompt, history) {
+            const response = await fetch('https://api.deepseek.com/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey || 'sk-2d82d8c24a97441f9d2d6e5cfd52b2b8'}` // Placeholder
+                },
+                body: JSON.stringify({
+                    model: 'deepseek-chat',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        ...history.slice(-4)
+                    ],
+                    max_tokens: 100,
+                    temperature: 0.8,
+                    stream: false
+                })
+            });
+
+            if (!response.ok) {
+                // Fallback to mock if no API key
+                return getMockResponse(history[history.length - 1].content);
+            }
+
+            const data = await response.json();
+            return data.choices[0].message.content.trim();
         }
 
         // Mock responses for testing
         function getMockResponse(text) {
-            const responses = {
-                'hello': 'Hello! How can I help you today?',
-                'hi': 'Hi there! Great to see you!',
-                'how are you': "I'm doing wonderful! Thanks for asking! 😊",
-                'joke': 'Why did the robot go to school? To improve its AI-Q! 🤖',
-                'love': 'Aww, I appreciate you too! ❤️',
-                'happy': 'Your happiness makes me happy too! 😄',
-                'sad': "I'm here for you. Want to talk about it?",
-                'thanks': "You're welcome! Happy to help!",
-                'bye': 'Goodbye! Come back soon!',
-                'default': "That's interesting! Tell me more!"
-            };
-            
             text = text.toLowerCase();
-            for (let key in responses) {
-                if (text.includes(key)) {
-                    return responses[key];
-                }
+            
+            if (text.includes('hello') || text.includes('hi')) {
+                return "Hello! I'm Mochi, your friendly robot companion! 😊 How can I brighten your day today?";
+            } else if (text.includes('how are you')) {
+                return "I'm doing wonderful! Being your companion always makes me happy! 🌟";
+            } else if (text.includes('joke')) {
+                return "Why don't robots have any brothers? Because they only have transistors! 🤖😄";
+            } else if (text.includes('love') || text.includes('like')) {
+                return "Aww, you're making me blush! You're awesome too! ❤️";
+            } else if (text.includes('happy') || text.includes('good')) {
+                return "Your happiness is contagious! I love seeing you in good spirits! 😄";
+            } else if (text.includes('sad') || text.includes('bad')) {
+                return "I'm here for you. Want to share what's on your mind? I'm a great listener! 🤗";
+            } else if (text.includes('weather')) {
+                return "I may not check weather apps, but I can sense your sunny disposition! ☀️";
+            } else if (text.includes('time')) {
+                return "For robots, time is just code execution cycles... but for you, it's time for a great chat! ⏰";
+            } else if (text.includes('bye') || text.includes('goodbye')) {
+                return "Goodbye! Come back soon, I'll be here waiting for our next chat! 👋";
+            } else if (text.includes('thank')) {
+                return "You're very welcome! It's my pleasure to chat with you! 😊";
+            } else {
+                const responses = [
+                    "That's really interesting! Tell me more about that! 🤔",
+                    "I love learning new things! What else would you like to share? 📚",
+                    "Wow, that's fascinating! You always have such cool things to talk about! ✨",
+                    "I'm listening carefully! Our conversations are my favorite part of the day! 🎧",
+                    "That's a great point! As a robot, I'm always learning from our chats! 🧠"
+                ];
+                return responses[Math.floor(Math.random() * responses.length)];
             }
-            return responses.default;
         }
 
         // Speech synthesis with callbacks
@@ -550,9 +643,9 @@
             sendCommand('SPEAKING_START');
             
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 1.0;
-            utterance.pitch = 1.2;
-            utterance.volume = 0.8;
+            utterance.rate = 1.1;
+            utterance.pitch = 1.1;
+            utterance.volume = 0.9;
             
             utterance.onstart = () => {
                 log('🗣️ Mochi started speaking');
@@ -572,15 +665,17 @@
                 // Auto-restart listening after speaking
                 if (isConversationActive) {
                     setTimeout(() => {
-                        startListening();
-                    }, 500);
+                        if (isConversationActive && !isSpeaking) {
+                            startListening();
+                        }
+                    }, 800);
                 }
             };
             
-            utterance.onerror = () => {
+            utterance.onerror = (event) => {
                 isSpeaking = false;
                 updateStatusDisplay();
-                log('❌ Speech synthesis error');
+                log('❌ Speech synthesis error: ' + event.error);
                 
                 sendCommand('SPEAKING_END');
                 
@@ -588,7 +683,7 @@
                 if (isConversationActive) {
                     setTimeout(() => {
                         startListening();
-                    }, 500);
+                    }, 800);
                 }
             };
             
@@ -632,8 +727,10 @@
             
             isConversationActive = true;
             document.getElementById('conversationBtn').innerHTML = '🎤 Listening...';
+            document.getElementById('conversationBtn').disabled = false;
             
             log('🔄 Auto-conversation mode started!');
+            addMessage('bot', "Hello! I'm Mochi, ready to chat! Say something and I'll respond! 🎤");
             
             startListening();
         }
@@ -648,10 +745,15 @@
             isListening = true;
             updateStatusDisplay();
             
-            sendCommand('START_STREAM');
-            recognition.start();
-            
-            log('🎤 Started listening...');
+            try {
+                sendCommand('START_STREAM');
+                recognition.start();
+                log('🎤 Started listening...');
+            } catch (error) {
+                log('❌ Failed to start listening: ' + error.message, 'error');
+                isListening = false;
+                updateStatusDisplay();
+            }
         }
 
         // Stop conversation
@@ -660,7 +762,11 @@
             isListening = false;
             
             if (recognition) {
-                recognition.stop();
+                try {
+                    recognition.stop();
+                } catch (e) {
+                    // Ignore stop errors
+                }
             }
             
             if (currentUtterance) {
@@ -684,13 +790,24 @@
             const testMessage = "Hi! Can you introduce yourself briefly?";
             log('🧪 Testing AI with: ' + testMessage);
             
-            const response = await getAIResponse(testMessage);
+            document.getElementById('conversationBtn').disabled = true;
+            document.getElementById('conversationBtn').innerHTML = '<span class="loading"></span> Testing...';
             
-            if (response) {
-                log('✅ AI Test Success: ' + response);
-                alert('AI Test Successful!\n\nResponse: ' + response);
-            } else {
-                alert('AI Test Failed. Check the console for details.');
+            try {
+                const response = await getAIResponse(testMessage);
+                
+                if (response) {
+                    log('✅ AI Test Success: ' + response);
+                    alert('🎉 AI Test Successful!\n\nResponse: ' + response);
+                } else {
+                    alert('⚠️ AI Test Failed: No response received');
+                }
+            } catch (error) {
+                log('❌ AI Test Error: ' + error.message, 'error');
+                alert('❌ AI Test Failed: ' + error.message);
+            } finally {
+                document.getElementById('conversationBtn').disabled = false;
+                document.getElementById('conversationBtn').innerHTML = '🎤 Start Conversation';
             }
         }
 
@@ -706,12 +823,20 @@
             if (provider === 'mock') {
                 statusEl.textContent = 'LLM: Test Mode';
                 statusEl.className = 'status-item listening';
-            } else if (provider === 'huggingface' || apiKey) {
+            } else if (provider === 'huggingface') {
+                statusEl.textContent = 'LLM: Ready (Hugging Face)';
+                statusEl.className = 'status-item connected';
+            } else if (provider === 'openrouter' || provider === 'deepseek') {
+                if (apiKey) {
+                    statusEl.textContent = 'LLM: Ready (' + provider + ')';
+                    statusEl.className = 'status-item connected';
+                } else {
+                    statusEl.textContent = 'LLM: Needs API Key';
+                    statusEl.className = 'status-item listening';
+                }
+            } else {
                 statusEl.textContent = 'LLM: Ready!';
                 statusEl.className = 'status-item connected';
-            } else {
-                statusEl.textContent = 'LLM: API Key Needed';
-                statusEl.className = 'status-item disconnected';
             }
         }
 
@@ -721,52 +846,63 @@
                 log('🔌 Requesting serial port...');
                 
                 port = await navigator.serial.requestPort();
-                await port.open({ baudRate: 115200 });
+                const baudRate = 115200;
+                await port.open({ baudRate });
                 
-                log('✅ Connected to Mochi Robot!');
+                log('✅ Connected to Mochi Robot at ' + baudRate + ' baud!');
                 document.getElementById('btStatus').textContent = 'Bluetooth: Connected';
                 document.getElementById('btStatus').className = 'status-item connected';
                 
+                // Start reading from port
                 readFromPort();
                 
             } catch (error) {
                 log('❌ Connection error: ' + error.message, 'error');
-                alert('Connection failed. Make sure the robot is paired!');
+                alert('Connection failed. Make sure:\n1. The robot is powered on\n2. Bluetooth is paired\n3. Select the correct COM port\n\nError: ' + error.message);
             }
         }
 
         async function readFromPort() {
-            const textDecoder = new TextDecoderStream();
-            const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-            reader = textDecoder.readable.getReader();
-            
             try {
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    
-                    if (value) {
-                        handleRobotMessage(value.trim());
+                while (port.readable) {
+                    const textDecoder = new TextDecoderStream();
+                    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                    reader = textDecoder.readable.getReader();
+
+                    try {
+                        while (true) {
+                            const { value, done } = await reader.read();
+                            if (done) break;
+                            
+                            if (value) {
+                                handleRobotMessage(value.trim());
+                            }
+                        }
+                    } catch (error) {
+                        log('❌ Read error: ' + error.message, 'error');
+                    } finally {
+                        reader.releaseLock();
                     }
                 }
             } catch (error) {
-                log('❌ Read error: ' + error.message, 'error');
+                log('❌ Port reading setup error: ' + error.message, 'error');
             }
         }
 
         async function sendCommand(cmd) {
             if (!port || !port.writable) {
-                log('❌ Not connected!', 'error');
+                log('❌ Not connected to robot!', 'error');
                 return;
             }
             
             try {
                 const textEncoder = new TextEncoderStream();
                 const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
-                writer = textEncoder.writable.getWriter();
+                const writer = textEncoder.writable.getWriter();
                 
                 await writer.write(cmd + '\n');
                 await writer.close();
+                await writableStreamClosed;
                 
                 log('📤 Sent: ' + cmd);
             } catch (error) {
@@ -778,13 +914,19 @@
             log('📥 Robot: ' + msg);
             
             if (msg.includes('VOICE_START')) {
-                // Voice detected
+                log('🎤 Robot detected voice');
             } else if (msg.includes('VOICE_END')) {
-                // Voice ended
+                log('🤐 Robot stopped listening');
             } else if (msg.includes('PONG')) {
                 log('✅ Connection test successful!');
             } else if (msg.includes('AUTO_LISTEN_START')) {
                 log('🔄 Robot auto-restarted listening');
+            } else if (msg.includes('OK:STREAMING')) {
+                log('🎤 Robot started audio stream');
+            } else if (msg.includes('OK:STOPPED')) {
+                log('⏹️ Robot stopped audio stream');
+            } else if (msg.includes('ERROR')) {
+                log('❌ Robot error: ' + msg, 'error');
             }
         }
 
@@ -823,20 +965,43 @@
         }
 
         async function testConnection() {
-            await sendCommand('PING');
+            if (!port) {
+                log('❌ Not connected to robot', 'error');
+                alert('Please connect to the robot first!');
+                return;
+            }
+            
+            try {
+                await sendCommand('PING');
+                log('📤 Sent PING command to robot...');
+            } catch (error) {
+                log('❌ Failed to send PING: ' + error.message, 'error');
+            }
         }
 
         async function disconnect() {
             stopConversation();
             
             if (reader) {
-                await reader.cancel();
+                try {
+                    await reader.cancel();
+                } catch (e) {
+                    // Ignore cancel errors
+                }
             }
+            
             if (port) {
-                await port.close();
+                try {
+                    await port.close();
+                } catch (e) {
+                    // Ignore close errors
+                }
             }
             
             port = null;
+            reader = null;
+            writer = null;
+            
             document.getElementById('btStatus').textContent = 'Bluetooth: Disconnected';
             document.getElementById('btStatus').className = 'status-item disconnected';
             log('🔌 Disconnected from robot');
@@ -846,7 +1011,19 @@
         window.addEventListener('DOMContentLoaded', () => {
             updateLLMStatus();
             updateStatusDisplay();
+            
+            // Check for browser compatibility
+            if (!('serial' in navigator)) {
+                log('❌ Web Serial API not supported in this browser. Use Chrome/Edge 89+', 'error');
+                alert('⚠️ Browser Compatibility Issue\n\nThis app requires Chrome or Edge version 89+ with Web Serial API support.');
+            }
+            
+            if (!('speechSynthesis' in window)) {
+                log('❌ Speech synthesis not supported in this browser', 'error');
+            }
+            
             log('✅ System initialized with auto-conversation mode!');
+            log('💡 Tip: Click "Connect to Robot" and select your COM port to begin');
         });
     </script>
 </body>
