@@ -1,104 +1,9 @@
-<!DOCTYPE html> <html lang="en"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Mochi Robot Control</title> <style> * { margin: 0; padding: 0; box-sizing: border-box;
-
-pasted
-
-;
-; PlatformIO Project Configuration File
-;
-;   Build options: build flags, source filter
-;   Upload options: custom upload port, speed and extra flags
-;   Library options: dependencies, extra library storages
-;   Advanced options: extra scripting
-;
-; Please visit documentation for the other options and examples
-; https://docs.platformio.org/page/projectconf.html
-
-[env:esp32doit-devkit-v1]
-platform = espressif32
-board = esp32doit-devkit-v1
-framework = arduino
-monitor_speed = 115200
-
-; Use built-in ESP32 framework instead of external library
-lib_deps = 
-    bodmer/TFT_eSPI@^2.5.0
-    ; Remove the problematic arduino-esp32 line
-
-; Build flags for your specific TFT display
-build_flags = 
-    -DUSER_SETUP_LOADED=1
-    -DILI9341_DRIVER=1
-    -DTFT_PARALLEL_8_BIT=1
-    -DTFT_WIDTH=240
-    -DTFT_HEIGHT=320
-    -DTFT_CS=33
-    -DTFT_DC=15
-    -DTFT_RST=32
-    -DTFT_WR=4
-    -DTFT_RD=2
-    -DTFT_D0=12
-    -DTFT_D1=13
-    -DTFT_D2=26
-    -DTFT_D3=25
-    -DTFT_D4=27
-    -DTFT_D5=14
-    -DTFT_D6=19
-    -DTFT_D7=23
-    -DLOAD_GLCD=1
-    -DSPI_FREQUENCY=27000000
-    ; Add memory optimization flags
-    -DBOARD_HAS_PSRAM
-    -mfix-esp32-psram-cache-issue
-ting! Tell me more about that.
-System Log
-Waiting for connection...[1:50:35 PM] Requesting serial port... [1:50:42 PM] Connected to Mochi Robot! [1:51:36 PM] Sent: START_STREAM [1:51:36 PM] Started listening... [1:51:39 PM] You said: hello [1:51:39 PM] Sent: INPUT:hello [1:51:39 PM] AI provider not fully implemented yet, using mock [1:51:40 PM] You said: how are you [1:51:40 PM] Sent: INPUT:how are you [1:51:40 PM] AI provider not fully implemented yet, using mock [1:51:44 PM] You said: I am Siddharth [1:51:44 PM] Sent: INPUT:I am Siddharth [1:51:44 PM] AI provider not fully implemented yet, using mock [1:51:52 PM] Speech recognition error: no-speech [1:52:07 PM] Speech recognition error: no-speech [1:52:24 PM] Speech recognition error: no-speech
-
-Show more
-1:57 PM
-Perfect! I can see you're building a voice-controlled robot companion with ESP32, Bluetooth, and AI integration. Let me create comprehensive coding standards tailored to your embedded systems + web interface project.
-
-Mochi Robot - Coding Standards
-Document 
-I've created comprehensive coding standards tailored specifically for your Mochi Robot project! The document covers:
-
-Key highlights:
-
-C++/Arduino standards for your ESP32 embedded code (naming, hardware interfaces, memory management)
-JavaScript/web standards for your control interface (async/await, DOM manipulation, event handling)
-Communication protocol specs (command format, audio streaming packet structure)
-Error handling patterns for both hardware and web layers
-Quick reference checklist to review before committing
-The standards are based directly on your existing code patterns, so they should feel natural to follow. They emphasize the unique challenges of your project: real-time audio streaming, Bluetooth communication, and hardware state management.
-
-Would you like me to:
-
-Add sections on specific topics (testing, deployment, etc.)?
-Create separate quick-reference cards for common patterns?
-Add more examples for a particular area?
-add a LLM in Website and the robo response should mw shown on the display
-
-2:00 PM
-I'll help you add LLM integration to the website and display the robot's responses on the screen! Let me create updated versions of both files.
-
-Mochi Robot Control - LLM Enhanced
-Interactive artifact 
-Now let me update the ESP32 code to handle displaying responses on the screen:
-
-Mochi ESP32 - LLM Display Support
-Code 
-
-
-Want to be notified when Claude responds?
-
-
-
-Claude is AI and can make mistakes. Please double-check responses.
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mochi Robot Control - LLM Enhanced</title>
+    <title>Mochi Robot Control - Free LLM</title>
     <style>
         * {
             margin: 0;
@@ -310,11 +215,16 @@ Claude is AI and can make mistakes. Please double-check responses.
         }
 
         .info-box {
-            background: #fef3c7;
-            border-left: 4px solid #f59e0b;
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
             padding: 15px;
             border-radius: 8px;
             margin: 15px 0;
+        }
+
+        .success-box {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
         }
 
         .api-status {
@@ -331,9 +241,9 @@ Claude is AI and can make mistakes. Please double-check responses.
             color: #065f46;
         }
 
-        .api-error {
-            background: #fee2e2;
-            color: #991b1b;
+        .api-free {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .loading {
@@ -354,25 +264,36 @@ Claude is AI and can make mistakes. Please double-check responses.
             background: #f0fdf4;
             border: 2px dashed #22c55e;
         }
+
+        .model-info {
+            font-size: 0.85em;
+            color: #64748b;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🤖 Mochi Robot Control</h1>
-        <p style="color: #64748b; margin-bottom: 20px;">AI-powered voice-controlled companion with LLM integration</p>
+        <p style="color: #64748b; margin-bottom: 20px;">AI-powered voice companion with FREE LLM models</p>
 
         <div class="status">
             <div class="status-item disconnected" id="btStatus">Bluetooth: Disconnected</div>
             <div class="status-item disconnected" id="listenStatus">Not Listening</div>
-            <div class="status-item disconnected" id="llmStatus">LLM: Not Ready</div>
+            <div class="status-item api-free" id="llmStatus">LLM: Free Models Ready! 🎉</div>
+        </div>
+
+        <div class="info-box success-box">
+            <strong>🎉 100% FREE LLM Models - No API Key Needed!</strong><br>
+            All models below are completely free to use. Choose your favorite and start chatting!
         </div>
 
         <div class="info-box">
             <strong>📱 Setup Instructions:</strong><br>
             1. Pair "Mochi_Robot" in Windows Bluetooth settings<br>
             2. Note the COM port (e.g., COM5)<br>
-            3. Configure your LLM API key below<br>
-            4. Click "Connect to Robot" and select the correct port
+            3. Select your preferred free LLM model below<br>
+            4. Click "Connect to Robot" and start chatting!
         </div>
 
         <div class="section">
@@ -389,27 +310,31 @@ Claude is AI and can make mistakes. Please double-check responses.
         </div>
 
         <div class="section">
-            <h2>🤖 AI Configuration <span class="api-status api-error" id="apiStatus">No API Key</span></h2>
+            <h2>🤖 Free AI Models <span class="api-status api-free">No API Key Required!</span></h2>
             <div class="controls">
                 <div>
-                    <label>LLM Provider:</label>
+                    <label>Select Free Model:</label>
                     <select id="aiProvider" onchange="updateLLMStatus()">
-                        <option value="openai">OpenAI GPT-4</option>
-                        <option value="anthropic">Anthropic Claude</option>
-                        <option value="groq">Groq (Fast & Free)</option>
-                        <option value="mock">Mock (Testing)</option>
+                        <option value="huggingface">🤗 Hugging Face Inference (Recommended)</option>
+                        <option value="groq-free">⚡ Groq Free (Fast Llama 3.3)</option>
+                        <option value="together">🌐 Together AI Free</option>
+                        <option value="replicate">🔄 Replicate Free</option>
+                        <option value="mock">🧪 Mock (Testing)</option>
                     </select>
+                    <div class="model-info" id="modelInfo">
+                        Fast, reliable, and 100% free Llama models via Hugging Face
+                    </div>
                 </div>
                 <div>
-                    <label>API Key:</label>
-                    <input type="password" id="apiKey" placeholder="sk-..." oninput="updateLLMStatus()">
+                    <label>API Key (Optional - for higher limits):</label>
+                    <input type="password" id="apiKey" placeholder="Optional - works without key!" oninput="updateLLMStatus()">
                 </div>
             </div>
             <div style="margin-top: 15px;">
-                <label>System Prompt (Mochi's personality):</label>
+                <label>Mochi's Personality:</label>
                 <textarea id="systemPrompt" rows="3" style="width: 100%; resize: vertical;">You are Mochi, a friendly and expressive desk robot companion. You give short, warm responses (1-2 sentences max). You're curious, playful, and supportive. Express emotions naturally!</textarea>
             </div>
-            <button class="success-btn" onclick="testLLM()" style="margin-top: 10px;">🧪 Test LLM</button>
+            <button class="success-btn" onclick="testLLM()" style="margin-top: 10px;">🧪 Test AI Model</button>
         </div>
 
         <div class="section">
@@ -436,16 +361,16 @@ Claude is AI and can make mistakes. Please double-check responses.
         </div>
 
         <div class="section test-section">
-            <h2>🧪 Test LLM (without robot)</h2>
+            <h2>🧪 Test AI (without robot)</h2>
             <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <input type="text" id="testInput" placeholder="Type a message to test the LLM..." style="flex: 1;">
+                <input type="text" id="testInput" placeholder="Type a message to test the AI..." style="flex: 1;">
                 <button class="primary-btn" onclick="testLLMWithInput()">Send</button>
             </div>
         </div>
 
         <div class="section">
             <h2>📊 System Log</h2>
-            <div class="log" id="systemLog">System initialized. Waiting for connection...</div>
+            <div class="log" id="systemLog">System initialized. Free AI models ready! 🎉</div>
         </div>
     </div>
 
@@ -456,6 +381,15 @@ Claude is AI and can make mistakes. Please double-check responses.
         let isListening = false;
         let recognition = null;
         let conversationHistory = [];
+
+        // Model information
+        const modelInfo = {
+            'huggingface': 'Fast Llama 3.1 8B - Free unlimited access via Hugging Face',
+            'groq-free': 'Lightning-fast Llama 3.3 70B - Free tier with generous limits',
+            'together': 'Various open-source models - Free tier available',
+            'replicate': 'On-demand inference - Pay-per-use with free credits',
+            'mock': 'Testing mode - No real AI calls'
+        };
 
         // Initialize Speech Recognition
         function initSpeechRecognition() {
@@ -475,10 +409,8 @@ Claude is AI and can make mistakes. Please double-check responses.
                 log('🎤 You said: ' + transcript);
                 addMessage('user', transcript);
                 
-                // Send to ESP32
                 await sendCommand('INPUT:' + transcript);
                 
-                // Get AI response with loading indicator
                 document.getElementById('listenBtn').innerHTML = '<span class="loading"></span> Thinking...';
                 document.getElementById('listenBtn').disabled = true;
                 
@@ -489,11 +421,7 @@ Claude is AI and can make mistakes. Please double-check responses.
                 
                 if (response) {
                     addMessage('bot', response);
-                    
-                    // Send response to ESP32 for display
                     await sendCommand('RESPONSE:' + response);
-                    
-                    // Speak response
                     speak(response);
                 }
             };
@@ -515,7 +443,7 @@ Claude is AI and can make mistakes. Please double-check responses.
             return recognition;
         }
 
-        // LLM Integration Functions
+        // Free LLM Integration
         async function getAIResponse(userMessage) {
             const provider = document.getElementById('aiProvider').value;
             const apiKey = document.getElementById('apiKey').value;
@@ -525,13 +453,6 @@ Claude is AI and can make mistakes. Please double-check responses.
                 return getMockResponse(userMessage);
             }
 
-            if (!apiKey) {
-                log('❌ No API key configured', 'error');
-                alert('Please enter your API key in the AI Configuration section');
-                return null;
-            }
-
-            // Add to conversation history
             conversationHistory.push({
                 role: 'user',
                 content: userMessage
@@ -540,22 +461,22 @@ Claude is AI and can make mistakes. Please double-check responses.
             try {
                 let response;
                 
-                if (provider === 'openai') {
-                    response = await callOpenAI(apiKey, systemPrompt, conversationHistory);
-                } else if (provider === 'anthropic') {
-                    response = await callAnthropic(apiKey, systemPrompt, conversationHistory);
-                } else if (provider === 'groq') {
-                    response = await callGroq(apiKey, systemPrompt, conversationHistory);
+                if (provider === 'huggingface') {
+                    response = await callHuggingFace(apiKey, systemPrompt, conversationHistory);
+                } else if (provider === 'groq-free') {
+                    response = await callGroqFree(apiKey, systemPrompt, conversationHistory);
+                } else if (provider === 'together') {
+                    response = await callTogetherAI(apiKey, systemPrompt, conversationHistory);
+                } else if (provider === 'replicate') {
+                    response = await callReplicate(apiKey, systemPrompt, conversationHistory);
                 }
 
                 if (response) {
-                    // Add AI response to history
                     conversationHistory.push({
                         role: 'assistant',
                         content: response
                     });
 
-                    // Keep history manageable (last 10 messages)
                     if (conversationHistory.length > 10) {
                         conversationHistory = conversationHistory.slice(-10);
                     }
@@ -563,69 +484,60 @@ Claude is AI and can make mistakes. Please double-check responses.
                     return response;
                 }
             } catch (error) {
-                log('❌ LLM Error: ' + error.message, 'error');
+                log('❌ AI Error: ' + error.message, 'error');
                 return "Sorry, I had trouble thinking of a response. Can you try again?";
             }
 
             return null;
         }
 
-        // OpenAI API Call
-        async function callOpenAI(apiKey, systemPrompt, history) {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        // Hugging Face Inference API (FREE!)
+        async function callHuggingFace(apiKey, systemPrompt, history) {
+            // Use Hugging Face's free inference API
+            const model = 'meta-llama/Llama-3.2-3B-Instruct'; // Free model
+            
+            const messages = [
+                { role: 'system', content: systemPrompt },
+                ...history
+            ];
+
+            const prompt = messages.map(m => {
+                if (m.role === 'system') return m.content;
+                return `${m.role === 'user' ? 'User' : 'Mochi'}: ${m.content}`;
+            }).join('\n') + '\nMochi:';
+
+            const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
+                    ...(apiKey ? { 'Authorization': `Bearer ${apiKey}` } : {})
                 },
                 body: JSON.stringify({
-                    model: 'gpt-4',
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        ...history
-                    ],
-                    max_tokens: 150,
-                    temperature: 0.8
+                    inputs: prompt,
+                    parameters: {
+                        max_new_tokens: 100,
+                        temperature: 0.8,
+                        top_p: 0.9,
+                        return_full_text: false
+                    }
                 })
             });
 
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.error?.message || 'OpenAI API error');
+                throw new Error(error.error || 'Hugging Face API error');
             }
 
             const data = await response.json();
-            return data.choices[0].message.content.trim();
+            return data[0]?.generated_text?.trim() || data.generated_text?.trim();
         }
 
-        // Anthropic Claude API Call
-        async function callAnthropic(apiKey, systemPrompt, history) {
-            const response = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': apiKey,
-                    'anthropic-version': '2023-06-01'
-                },
-                body: JSON.stringify({
-                    model: 'claude-3-5-sonnet-20241022',
-                    max_tokens: 150,
-                    system: systemPrompt,
-                    messages: history
-                })
-            });
-
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error?.message || 'Anthropic API error');
+        // Groq Free Tier (Fast & Free!)
+        async function callGroqFree(apiKey, systemPrompt, history) {
+            if (!apiKey) {
+                throw new Error('Groq requires an API key. Sign up for free at https://console.groq.com');
             }
 
-            const data = await response.json();
-            return data.content[0].text.trim();
-        }
-
-        // Groq API Call (Fast, Llama-based)
-        async function callGroq(apiKey, systemPrompt, history) {
             const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -652,6 +564,93 @@ Claude is AI and can make mistakes. Please double-check responses.
             return data.choices[0].message.content.trim();
         }
 
+        // Together AI Free Tier
+        async function callTogetherAI(apiKey, systemPrompt, history) {
+            if (!apiKey) {
+                throw new Error('Together AI requires an API key. Sign up for $25 free credits at https://together.ai');
+            }
+
+            const response = await fetch('https://api.together.xyz/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: 'meta-llama/Llama-3-8b-chat-hf',
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        ...history
+                    ],
+                    max_tokens: 150,
+                    temperature: 0.8
+                })
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error?.message || 'Together AI error');
+            }
+
+            const data = await response.json();
+            return data.choices[0].message.content.trim();
+        }
+
+        // Replicate
+        async function callReplicate(apiKey, systemPrompt, history) {
+            if (!apiKey) {
+                throw new Error('Replicate requires an API key. Sign up for free credits at https://replicate.com');
+            }
+
+            const messages = [
+                { role: 'system', content: systemPrompt },
+                ...history
+            ];
+
+            const prompt = messages.map(m => {
+                if (m.role === 'system') return m.content;
+                return `${m.role === 'user' ? 'User' : 'Mochi'}: ${m.content}`;
+            }).join('\n') + '\nMochi:';
+
+            const response = await fetch('https://api.replicate.com/v1/predictions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Token ${apiKey}`
+                },
+                body: JSON.stringify({
+                    version: 'meta/llama-2-7b-chat',
+                    input: {
+                        prompt: prompt,
+                        max_length: 150,
+                        temperature: 0.8
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Replicate API error');
+            }
+
+            const prediction = await response.json();
+            
+            // Poll for result
+            let result = prediction;
+            while (result.status !== 'succeeded' && result.status !== 'failed') {
+                await new Promise(r => setTimeout(r, 500));
+                const pollResponse = await fetch(prediction.urls.get, {
+                    headers: { 'Authorization': `Token ${apiKey}` }
+                });
+                result = await pollResponse.json();
+            }
+
+            if (result.status === 'failed') {
+                throw new Error('Prediction failed');
+            }
+
+            return result.output?.join('') || result.output;
+        }
+
         // Mock responses for testing
         function getMockResponse(text) {
             const responses = {
@@ -676,22 +675,22 @@ Claude is AI and can make mistakes. Please double-check responses.
             return responses.default;
         }
 
-        // Test LLM Configuration
+        // Test LLM
         async function testLLM() {
             const testMessage = "Hi! Can you introduce yourself briefly?";
-            log('🧪 Testing LLM with: ' + testMessage);
+            log('🧪 Testing AI with: ' + testMessage);
             
             const response = await getAIResponse(testMessage);
             
             if (response) {
-                log('✅ LLM Test Success: ' + response);
-                alert('LLM Test Successful!\n\nResponse: ' + response);
+                log('✅ AI Test Success: ' + response);
+                alert('AI Test Successful!\n\nResponse: ' + response);
             } else {
-                alert('LLM Test Failed. Check your API key and configuration.');
+                alert('AI Test Failed. Check the console for details.');
             }
         }
 
-        // Test LLM with custom input
+        // Test with custom input
         async function testLLMWithInput() {
             const input = document.getElementById('testInput').value.trim();
             if (!input) return;
@@ -705,32 +704,28 @@ Claude is AI and can make mistakes. Please double-check responses.
             }
         }
 
-        // Update LLM status indicator
+        // Update model info
         function updateLLMStatus() {
             const provider = document.getElementById('aiProvider').value;
             const apiKey = document.getElementById('apiKey').value;
             const statusEl = document.getElementById('llmStatus');
-            const apiStatusEl = document.getElementById('apiStatus');
+            const infoEl = document.getElementById('modelInfo');
+
+            infoEl.textContent = modelInfo[provider];
 
             if (provider === 'mock') {
-                statusEl.textContent = 'LLM: Mock Mode';
+                statusEl.textContent = 'LLM: Test Mode';
                 statusEl.className = 'status-item listening';
-                apiStatusEl.textContent = 'Test Mode';
-                apiStatusEl.className = 'api-status api-ready';
-            } else if (apiKey && apiKey.length > 10) {
-                statusEl.textContent = 'LLM: Ready';
+            } else if (provider === 'huggingface' || apiKey) {
+                statusEl.textContent = 'LLM: Ready!';
                 statusEl.className = 'status-item connected';
-                apiStatusEl.textContent = 'API Key Set';
-                apiStatusEl.className = 'api-status api-ready';
             } else {
-                statusEl.textContent = 'LLM: Not Ready';
+                statusEl.textContent = 'LLM: API Key Needed';
                 statusEl.className = 'status-item disconnected';
-                apiStatusEl.textContent = 'No API Key';
-                apiStatusEl.className = 'api-status api-error';
             }
         }
 
-        // Bluetooth Connection Functions
+        // Bluetooth functions
         async function connectBluetooth() {
             try {
                 log('🔌 Requesting serial port...');
@@ -746,7 +741,7 @@ Claude is AI and can make mistakes. Please double-check responses.
                 
             } catch (error) {
                 log('❌ Connection error: ' + error.message, 'error');
-                alert('Connection failed. Make sure:\n1. Robot is paired in Windows Bluetooth\n2. No other app is using the port\n3. You selected the correct COM port');
+                alert('Connection failed. Make sure the robot is paired!');
             }
         }
 
@@ -771,7 +766,7 @@ Claude is AI and can make mistakes. Please double-check responses.
 
         async function sendCommand(cmd) {
             if (!port || !port.writable) {
-                log('❌ Not connected to robot!', 'error');
+                log('❌ Not connected!', 'error');
                 return;
             }
             
@@ -809,10 +804,7 @@ Claude is AI and can make mistakes. Please double-check responses.
             
             if (!recognition) {
                 recognition = initSpeechRecognition();
-                if (!recognition) {
-                    alert('Speech recognition not supported in your browser!');
-                    return;
-                }
+                if (!recognition) return;
             }
             
             isListening = true;
@@ -852,7 +844,6 @@ Claude is AI and can make mistakes. Please double-check responses.
         function addMessage(type, text) {
             const chatArea = document.getElementById('chatArea');
             
-            // Clear welcome message
             if (chatArea.querySelector('div[style*="text-align: center"]')) {
                 chatArea.innerHTML = '';
             }
@@ -891,44 +882,4 @@ Claude is AI and can make mistakes. Please double-check responses.
         function log(message, level = 'info') {
             const logDiv = document.getElementById('systemLog');
             const time = new Date().toLocaleTimeString();
-            const prefix = level === 'error' ? '❌' : level === 'warn' ? '⚠️' : 'ℹ️';
-            
-            logDiv.innerHTML += `[${time}] ${prefix} ${message}<br>`;
-            logDiv.scrollTop = logDiv.scrollHeight;
-            
-            console.log(`${prefix} [${time}] ${message}`);
-        }
-
-        async function testConnection() {
-            await sendCommand('PING');
-        }
-
-        async function disconnect() {
-            if (reader) {
-                await reader.cancel();
-            }
-            if (port) {
-                await port.close();
-            }
-            
-            port = null;
-            document.getElementById('btStatus').textContent = 'Bluetooth: Disconnected';
-            document.getElementById('btStatus').className = 'status-item disconnected';
-            log('🔌 Disconnected from robot');
-        }
-
-        // Initialize on load
-        window.addEventListener('DOMContentLoaded', () => {
-            updateLLMStatus();
-            log('✅ System initialized');
-            
-            // Allow Enter key to send test messages
-            document.getElementById('testInput').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    testLLMWithInput();
-                }
-            });
-        });
-    </script>
-</body>
-</html>
+            const prefix = level === 'error' ? '❌' : level === 
