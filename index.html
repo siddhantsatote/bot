@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mochi Robot Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 800px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .status {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        .connected {
+            background: #10b981;
+            color: white;
+        }
+
+        .disconnected {
+            background: #ef4444;
+            color: white;
+        }
+
+        .listening {
+            background: #3b82f6;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .section {
+            margin: 25px 0;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 15px;
+        }
+
+        .section h2 {
+            color: #334155;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1em;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .primary-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .danger-btn {
+            background: #ef4444;
+            color: white;
+        }
+
+        .success-btn {
+            background: #10b981;
+            color: white;
+        }
+
+        .chat-area {
+            height: 300px;
+            overflow-y: auto;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .message {
+            margin: 10px 0;
+            padding: 12px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+
+        .user-message {
+            background: #dbeafe;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .bot-message {
+            background: #f3e8ff;
+        }
+
+        .message-label {
+            font-weight: 600;
+            font-size: 0.85em;
+            margin-bottom: 5px;
+            opacity: 0.7;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        select, input {
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+
+        .log {
+            background: #1e293b;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .audio-viz {
+            height: 60px;
+            background: #1e293b;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            padding: 10px;
+        }
+
+        .bar {
+            width: 4px;
+            background: #667eea;
+            border-radius: 2px;
+            transition: height 0.1s;
+        }
+
+        .info-box {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Mochi Robot Control</h1>
+        <p style="color: #64748b; margin-bottom: 20px;">Voice-controlled AI desk companion</p>
+
+        <div class="status">
+            <div class="status-item disconnected" id="btStatus">Bluetooth: Disconnected</div>
+            <div class="status-item disconnected" id="listenStatus">Not Listening</div>
+        </div>
+
+        <div class="info-box">
+            <strong>📱 Setup Instructions:</strong><br>
+            1. Pair "Mochi_Robot" in Windows Bluetooth settings<br>
+            2. Note the COM port (e.g., COM5)<br>
+            3. Click "Connect to Robot" and select the correct port
+        </div>
+
+        <div class="section">
+            <h2>Connection</h2>
+            <div class="button-group">
+                <button class="primary-btn" onclick="connectBluetooth()">Connect to Robot</button>
+                <button class="danger-btn" onclick="disconnect()">Disconnect</button>
+                <button class="success-btn" onclick="testConnection()">Test Connection</button>
+            </div>
+            <div style="margin-top: 10px;">
+                <label>COM Port: </label>
+                <input type="text" id="comPort" placeholder="COM5" value="COM5" style="width: 100px;">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Voice Control</h2>
+            <div class="button-group">
+                <button class="success-btn" onclick="startListening()">🎤 Start Listening</button>
+                <button class="danger-btn" onclick="stopListening()">⏹️ Stop</button>
+            </div>
+            <div class="audio-viz" id="audioViz">
+                <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>AI Configuration</h2>
+            <div class="controls">
+                <div>
+                    <label>AI Provider:</label>
+                    <select id="aiProvider">
+                        <option value="openai">OpenAI GPT</option>
+                        <option value="anthropic">Anthropic Claude</option>
+                        <option value="local">Local LLM</option>
+                        <option value="mock">Mock (Testing)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>API Key:</label>
+                    <input type="password" id="apiKey" placeholder="sk-...">
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Conversation</h2>
+            <div class="chat-area" id="chatArea"></div>
+        </div>
+
+        <div class="section">
+            <h2>System Log</h2>
+            <div class="log" id="systemLog">Waiting for connection...</div>
+        </div>
+    </div>
+
+    <script>
+        let port = null;
+        let reader = null;
+        let writer = null;
+        let isListening = false;
+        let audioContext = null;
+        let recognition = null;
+
+        // Initialize Speech Recognition
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                log('Speech recognition not supported in this browser');
+                return null;
+            }
+            
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+            
+            recognition.onresult = async (event) => {
+                const transcript = event.results[0][0].transcript;
+                log('You said: ' + transcript);
+                addMessage('user', transcript);
+                
+                // Send to ESP32
+                await sendCommand('INPUT:' + transcript);
+                
+                // Get AI response
+                const response = await getAIResponse(transcript);
+                addMessage('bot', response);
+                
+                // Send response to ESP32
+                await sendCommand('RESPONSE:' + response);
+                
+                // Speak response
+                speak(response);
+            };
+            
+            recognition.onerror = (event) => {
+                log('Speech recognition error: ' + event.error);
+            };
+            
+            recognition.onend = () => {
+                if (isListening) {
+                    recognition.start(); // Restart if still listening
+                }
+            };
+            
+            return recognition;
+        }
+
+        async function connectBluetooth() {
+            try {
+                log('Requesting serial port...');
+                
+                // Request serial port access
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                
+                log('Connected to Mochi Robot!');
+                document.getElementById('btStatus').textContent = 'Bluetooth: Connected';
+                document.getElementById('btStatus').className = 'status-item connected';
+                
+                // Start reading from port
+                readFromPort();
+                
+            } catch (error) {
+                log('Error connecting: ' + error.message);
+                alert('Connection failed. Make sure:\n1. Robot is paired in Windows Bluetooth\n2. No other app is using the port\n3. You selected the correct COM port');
+            }
+        }
+
+        async function readFromPort() {
+            const textDecoder = new TextDecoderStream();
+            const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+            reader = textDecoder.readable.getReader();
+            
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    if (value) {
+                        handleRobotMessage(value.trim());
+                    }
+                }
+            } catch (error) {
+                log('Read error: ' + error.message);
+            }
+        }
+
+        async function sendCommand(cmd) {
+            if (!port || !port.writable) {
+                log('Not connected!');
+                return;
+            }
+            
+            try {
+                const textEncoder = new TextEncoderStream();
+                const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+                writer = textEncoder.writable.getWriter();
+                
+                await writer.write(cmd + '\n');
+                await writer.close();
+                
+                log('Sent: ' + cmd);
+            } catch (error) {
+                log('Send error: ' + error.message);
+            }
+        }
+
+        function handleRobotMessage(msg) {
+            log('Robot: ' + msg);
+            
+            if (msg.includes('VOICE_START')) {
+                log('Robot started speaking...');
+                animateAudioViz(true);
+            } else if (msg.includes('VOICE_END')) {
+                log('Robot finished speaking');
+                animateAudioViz(false);
+            } else if (msg.includes('PONG')) {
+                log('Connection test successful!');
+            }
+        }
+
+        async function startListening() {
+            if (!port) {
+                alert('Please connect to robot first!');
+                return;
+            }
+            
+            if (!recognition) {
+                recognition = initSpeechRecognition();
+                if (!recognition) {
+                    alert('Speech recognition not supported!');
+                    return;
+                }
+            }
+            
+            isListening = true;
+            document.getElementById('listenStatus').textContent = 'Listening...';
+            document.getElementById('listenStatus').className = 'status-item listening';
+            
+            await sendCommand('START_STREAM');
+            recognition.start();
+            animateAudioViz(true);
+            
+            log('Started listening...');
+        }
+
+        async function stopListening() {
+            isListening = false;
+            document.getElementById('listenStatus').textContent = 'Not Listening';
+            document.getElementById('listenStatus').className = 'status-item disconnected';
+            
+            if (recognition) {
+                recognition.stop();
+            }
+            
+            await sendCommand('STOP_STREAM');
+            animateAudioViz(false);
+            
+            log('Stopped listening');
+        }
+
+        async function getAIResponse(text) {
+            const provider = document.getElementById('aiProvider').value;
+            
+            if (provider === 'mock') {
+                return getMockResponse(text);
+            }
+            
+            // For real AI providers, you would implement API calls here
+            log('AI provider not fully implemented yet, using mock');
+            return getMockResponse(text);
+        }
+
+        function getMockResponse(text) {
+            const responses = {
+                'hello': 'Hello! How can I help you today?',
+                'how are you': "I'm doing great! Thanks for asking!",
+                'joke': 'Why did the robot go to school? To improve its AI-Q!',
+                'default': 'That\'s interesting! Tell me more about that.'
+            };
+            
+            text = text.toLowerCase();
+            for (let key in responses) {
+                if (text.includes(key)) {
+                    return responses[key];
+                }
+            }
+            return responses.default;
+        }
+
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.2;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function addMessage(type, text) {
+            const chatArea = document.getElementById('chatArea');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + (type === 'user' ? 'user-message' : 'bot-message');
+            
+            const label = document.createElement('div');
+            label.className = 'message-label';
+            label.textContent = type === 'user' ? 'You' : 'Mochi';
+            
+            const content = document.createElement('div');
+            content.textContent = text;
+            
+            msgDiv.appendChild(label);
+            msgDiv.appendChild(content);
+            chatArea.appendChild(msgDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function animateAudioViz(active) {
+            const bars = document.querySelectorAll('.bar');
+            bars.forEach((bar, i) => {
+                if (active) {
+                    setInterval(() => {
+                        const height = Math.random() * 40 + 10;
+                        bar.style.height = height + 'px';
+                    }, 100 + i * 50);
+                } else {
+                    bar.style.height = '4px';
+                }
+            });
+        }
+
+        function log(message) {
+            const logDiv = document.getElementById('systemLog');
+            const time = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${time}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function testConnection() {
+            await sendCommand('PING');
+        }
+
+        async function disconnect() {
+            if (reader) {
+                await reader.cancel();
+            }
+            if (port) {
+                await port.close();
+            }
+            
+            port = null;
+            document.getElementById('btStatus').textContent = 'Bluetooth: Disconnected';
+            document.getElementById('btStatus').className = 'status-item disconnected';
+            log('Disconnected');
+        }
+    </script>
+</body>
+</html>
